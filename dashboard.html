@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .welcome-banner {
+      background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(6,182,212,0.08));
+      border: 1px solid rgba(37,99,235,0.2);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .welcome-banner::before {
+      content: '⛽';
+      position: absolute;
+      right: 24px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 64px;
+      opacity: 0.08;
+    }
+
+    .welcome-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+    }
+
+    .welcome-sub {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 24px 0 12px;
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .external-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    .external-link:hover {
+      border-color: var(--border-glow);
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar placeholder, filled by JS -->
+    <div id="sidebar-placeholder"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="flex" style="align-items:center;gap:12px">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="topbar-title">Dashboard</span>
+        </div>
+        <div class="flex" style="align-items:center;gap:12px">
+          <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+          <div class="welcome-title">Selamat datang, <span class="gradient-text" id="pt-display">—</span></div>
+          <div class="welcome-sub">Sistem Manajemen Operasional Pangkalan LPG · i-Operasional</div>
+          <div class="quick-actions">
+            <a href="index.html" class="btn btn-primary"><span>📝</span> Form Bukti TF</a>
+            <a href="masterrekapdata.html" class="btn btn-secondary"><span>🔑</span> Master Data</a>
+            <a href="https://i-shipping.pages.dev/masterdataishiping.html" target="_blank" class="btn btn-secondary"><span>🚚</span> i-Shipping</a>
+          </div>
+        </div>
+
+        <!-- Rekap & Laporan -->
+        <div class="section-title">Rekap &amp; Laporan</div>
+        <div class="feature-grid">
+          <a href="rekapoperasional.html" class="feature-card">
+            <div class="feature-icon">📊</div>
+            <div class="feature-label">Rekap Operasional</div>
+            <div class="feature-desc">Laporan harian & bulanan per pangkalan</div>
+          </a>
+          <a href="rekapkeseluruhan.html" class="feature-card">
+            <div class="feature-icon">💾</div>
+            <div class="feature-label">Rekap Global Operasional</div>
+            <div class="feature-desc">Ringkasan semua pangkalan sekaligus</div>
+          </a>
+          <a href="Combowombo.html" class="feature-card">
+            <div class="feature-icon">💻</div>
+            <div class="feature-label">Rekap SA Sim3lon &amp; Jadwal</div>
+            <div class="feature-desc">SA, jadwal harian, dan pengiriman</div>
+          </a>
+        </div>
+
+        <!-- Data & Master -->
+        <div class="section-title">Data &amp; Master</div>
+        <div class="feature-grid">
+          <a href="brimola.html" class="feature-card">
+            <div class="feature-icon">💸</div>
+            <div class="feature-label">Brimola Agen &amp; Pangkalan</div>
+            <div class="feature-desc">Kelola data pembayaran Brimola</div>
+          </a>
+          <a href="datakaryawan.html" class="feature-card">
+            <div class="feature-icon">👥</div>
+            <div class="feature-label">Pos Pembayaran</div>
+            <div class="feature-desc">Daftar keterangan pos pembayaran</div>
+          </a>
+          <a href="dbpangkalan.html" class="feature-card">
+            <div class="feature-icon">💱</div>
+            <div class="feature-label">Data Pangkalan</div>
+            <div class="feature-desc">Harga refill, bagi hasil, dan Brimola</div>
+          </a>
+          <a href="masterrekapdata.html" class="feature-card">
+            <div class="feature-icon">🔑</div>
+            <div class="feature-label">Master Data Bukti TF</div>
+            <div class="feature-desc">Semua transaksi bukti transfer</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    // Auth
+    if (localStorage.getItem('loggedIn') !== 'true' || !localStorage.getItem('id_spreadsheet')) {
+      window.location.href = 'login.html';
+    }
+
+    const namaPT = localStorage.getItem('nama_pt') || '-';
+    document.getElementById('pt-display').textContent = namaPT;
+    document.getElementById('pt-name-top').textContent = namaPT;
+
+    // Inject sidebar
+    document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+    // Re-bind hamburger
+    document.getElementById('hamburger').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-backdrop').classList.toggle('show');
+    });
+    document.getElementById('sidebar-backdrop').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-backdrop').classList.remove('show');
+    });
+
+    startAutoLogout(60);
+  </script>
+</body>
+</html>

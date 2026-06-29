@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rekap Operasional — i-Operasional</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .app-layout { display: flex; min-height: 100vh; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  /* Table override for print/export section */
+  #rekap-wrapper { background: #111827; }
+  #rekap-table th, #rekap-table td { white-space: nowrap; }
+  #rekap-table tbody tr:hover { background: var(--accent-soft); }
+
+  /* Share dropdown */
+  .share-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .share-menu {
+    display: none;
+    position: absolute;
+    left: 0; top: calc(100% + 4px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    min-width: 180px;
+    z-index: 100;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .share-menu.open { display: block; }
+  .share-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .share-menu button:last-child { border-bottom: none; }
+  .share-menu button:hover { background: var(--accent-soft); }
+
+  /* Modal for PT/Pangkalan picker */
+  .picker-modal {
+    position: fixed; inset: 0;
+    background: rgba(6,11,24,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .picker-modal.show { opacity: 1; pointer-events: all; }
+  .picker-inner {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    width: 100%; max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    transform: translateY(20px);
+    transition: transform 0.2s;
+  }
+  .picker-modal.show .picker-inner { transform: translateY(0); }
+  .picker-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .picker-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .picker-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .checkbox-list {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(99,131,199,0.08);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .checkbox-item:hover { background: var(--accent-soft); }
+  .checkbox-item:last-child { border-bottom: none; }
+  .checkbox-item input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .checkbox-item label { font-size: 0.85rem; color: var(--text-primary); cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="flex" style="align-items:center;gap:12px">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="topbar-title">📊 Rekap Operasional</span>
+      </div>
+      <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+    </div>
+
+    <div class="page-content">
+      <!-- Filter Card -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="card-title">Filter Rekap</div>
+        </div>
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap:12px">
+          <div class="form-group" style="margin:0;grid-column:1/-1">
+            <label class="form-label">PT &amp; Pangkalan</label>
+            <button onclick="openModal()" class="form-control" style="text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+              <span>
+                <span id="selected-pt-text" style="font-weight:600;color:#60A5FA">Pilih PT</span>
+                <span style="color:var(--text-muted);margin:0 6px">|</span>
+                <span id="selected-pangkalan-text" style="color:var(--text-secondary);font-size:0.8rem">Semua Pangkalan</span>
+              </span>
+              <span class="badge badge-blue">Ubah</span>
+            </button>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Bulan</label>
+            <select id="select-month" class="form-control"></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Tahun</label>
+            <select id="select-year" class="form-control"></select>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="btn-group">
+          <button id="btn-load" class="btn btn-primary">🔎 Tampilkan Rekap</button>
+          <button id="btn-export-xlsx" class="btn btn-secondary">📥 Export Excel</button>
+          <div class="share-dropdown">
+            <button class="btn btn-success" onclick="toggleMenu()">📤 Bagikan &amp; Cetak ▾</button>
+            <div class="share-menu" id="share-menu">
+              <button onclick="shareRekapWA()">📱 Kirim WhatsApp</button>
+              <button onclick="downloadPDF()">📄 Download PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Laporan Wrapper (for PDF/WA capture) -->
+      <div id="rekap-wrapper" class="card" style="padding:24px">
+        <!-- Report header (for print) -->
+        <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;text-align:center">
+          <div id="laporan-judul" style="font-size:1.2rem;font-weight:800;color:var(--text-primary)">Rekap Operasional Pangkalan</div>
+          <div id="laporan-periode" style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">Periode: -</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid" style="margin-bottom:20px">
+          <div class="stat-card">
+            <div class="stat-label">DO Dimiliki</div>
+            <div class="stat-value accent" id="do-owned">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Harga Tabung</div>
+            <div class="stat-value" id="price">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Harga Bagi Hasil</div>
+            <div class="stat-value" id="harga-bagi-hasil">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Penerimaan</div>
+            <div class="stat-value accent" id="total-penerimaan">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Tbg Kerjasama</div>
+            <div class="stat-value warning" id="tabung-kerjasama">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Sisa Bagi Hasil</div>
+            <div class="stat-value danger" id="sisa-bagi-hasil">-</div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap" id="table-scroll-container" style="max-height:55vh;overflow:auto">
+          <table class="table" id="rekap-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Laporan Driver</th>
+                <th>Retur</th>
+                <th>Dikirim</th>
+                <th>SA Pangkalan</th>
+                <th>Pengiriman</th>
+                <th>Nominal Dibayar</th>
+                <th>Brimola Oleh</th>
+                <th>Bayar Brimola</th>
+                <th>Bukti TF</th>
+                <th>Bagi Hasil</th>
+                <th style="color:#60A5FA">Total Tbg</th>
+              </tr>
+            </thead>
+            <tbody id="rekap-body">
+              <tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted)">Pilih PT &amp; Pangkalan lalu klik Tampilkan Rekap.</td></tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" style="text-align:right;font-weight:700">TOTAL</td>
+                <td id="total-pengiriman" style="font-weight:700">0</td>
+                <td></td><td></td><td></td><td></td>
+                <td id="total-bagi-hasil" style="font-weight:700">0</td>
+                <td id="grand-total" style="font-weight:700;color:#60A5FA">0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PT & Pangkalan Picker Modal -->
+<div class="picker-modal" id="modal-pt-pangkalan">
+  <div class="picker-inner">
+    <div class="picker-header">
+      <div style="font-size:1rem;font-weight:700">Filter PT &amp; Pangkalan</div>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer">✕</button>
+    </div>
+    <div class="picker-body">
+      <div class="form-group">
+        <label class="form-label">1. Pilih Nama PT</label>
+        <select id="select-pt" class="form-control"></select>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">2. Pilih Pangkalan</label>
+        <div class="checkbox-list" id="pangkalan-checkbox-container">
+          <div style="text-align:center;padding:20px;color:var(--text-muted)">Memuat...</div>
+        </div>
+      </div>
+    </div>
+    <div class="picker-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="applyModal()">Terapkan</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  if (localStorage.getItem('loggedIn') !== 'true' || !localStorage.getItem('id_spreadsheet')) window.location.href = 'login.html';
+  document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+  document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4VuE2KfU6tbis0cdC3DdpJH2cKB5vrMEQW4mlGZyxRHH6Rff_bTQp1O8cI-wq5Tol6w/exec';
+  let namaPangkalan = '', bulanTahun = '';
+
+  // Modal
+  function openModal() { document.getElementById('modal-pt-pangkalan').classList.add('show'); }
+  function closeModal() { document.getElementById('modal-pt-pangkalan').classList.remove('show'); }
+  function toggleMenu() { document.getElementById('share-menu').classList.toggle('open'); }
+  document.addEventListener('click', e => { if (!e.target.closest('.share-dropdown')) document.getElementById('share-menu').classList.remove('open'); });
+
+  function toggleAllPangkalan(source) {
+    document.querySelectorAll('input[name="pangkalan-item"]').forEach(cb => cb.checked = source.checked);
+  }
+  function checkIndividual() {
+    const all = document.querySelectorAll('input[name="pangkalan-item"]');
+    document.getElementById('check-all-pangkalan').checked = Array.from(all).every(cb => cb.checked);
+  }
+
+  function applyModal() {
+    const pt = document.getElementById('select-pt').value;
+    const checked = document.querySelectorAll('input[name="pangkalan-item"]:checked');
+    const pangkalans = Array.from(checked).map(c => c.value);
+    const isAll = !pangkalans.length || pangkalans.includes('ALL') || pangkalans.length === document.querySelectorAll('input[name="pangkalan-item"]').length;
+
+    document.getElementById('selected-pt-text').textContent = pt;
+    document.getElementById('selected-pangkalan-text').textContent = isAll ? 'Semua Pangkalan' : `${pangkalans.length} dipilih`;
+    closeModal();
+  }
+
+  async function fetchJSON(url) {
+    showSpinner('Memuat data...');
+    try {
+      const res = await fetch(url);
+      const j = await res.json();
+      hideSpinner();
+      return j;
+    } catch(e) { hideSpinner(); showToast('Gagal mengambil data.', 'error'); return null; }
+  }
+
+  function makeMonthOptions() {
+    const sel = document.getElementById('select-month');
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const now = new Date();
+    months.forEach((m,i) => {
+      const o = new Option(m, i+1);
+      if (i === now.getMonth()) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  function makeYearOptions() {
+    const sel = document.getElementById('select-year');
+    const y = new Date().getFullYear();
+    for (let i = y-2; i <= y+1; i++) {
+      const o = new Option(i, i);
+      if (i === y) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  async function loadPTs() {
+    const data = await fetchJSON(`${GAS_URL}?action=getPTs`);
+    if (!data) return;
+    const sel = document.getElementById('select-pt');
+    sel.innerHTML = '';
+    data.forEach(pt => sel.appendChild(new Option(pt, pt)));
+    await loadPangkalanForPT(sel.value);
+  }
+
+  async function loadPangkalanForPT(pt) {
+    const data = await fetchJSON(`${GAS_URL}?action=getPangkalan&pt=${encodeURIComponent(pt)}`);
+    const container = document.getElementById('pangkalan-checkbox-container');
+    let html = `<div class="checkbox-item"><input type="checkbox" id="check-all-pangkalan" value="ALL" onchange="toggleAllPangkalan(this)"><label for="check-all-pangkalan" style="font-weight:600;color:#60A5FA">— Pilih Semua Pangkalan —</label></div>`;
+    (data||[]).forEach((r, i) => {
+      const id = 'pk_' + i;
+      html += `<div class="checkbox-item"><input type="checkbox" name="pangkalan-item" value="${r.replace(/"/g,'&quot;')}" id="${id}" onchange="checkIndividual()"><label for="${id}">${r}</label></div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function getSelectedPangkalan() {
+    const checked = document.querySelectorAll('input[name="pangkalan-item"]:checked');
+    const vals = Array.from(checked).map(c => c.value);
+    if (!vals.length || vals.includes('ALL')) return ['ALL'];
+    const allBoxes = document.querySelectorAll('input[name="pangkalan-item"]');
+    if (checked.length === allBoxes.length) return ['ALL'];
+    return vals;
+  }
+
+  async function loadRekap() {
+    const pt = document.getElementById('select-pt').value;
+    if (!pt) { showToast('Pilih PT terlebih dahulu.', 'warning'); return; }
+    const pangkalans = getSelectedPangkalan();
+    const selMonth = document.getElementById('select-month');
+    const bulanNama = selMonth.options[selMonth.selectedIndex].text;
+    const tahun = document.getElementById('select-year').value;
+    bulanTahun = `${bulanNama} ${tahun}`;
+
+    document.getElementById('laporan-judul').textContent = pangkalans.includes('ALL') ? 'SEMUA PANGKALAN' : `PANGKALAN: ${pangkalans.join(', ')}`;
+    document.getElementById('laporan-periode').textContent = `Periode: ${bulanTahun} | PT: ${pt}`;
+    namaPangkalan = pangkalans.includes('ALL') ? 'Semua_Pangkalan' : (pangkalans.length <= 2 ? pangkalans.join('_') : `${pangkalans.length}_Pangkalan`);
+
+    document.getElementById('rekap-body').innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:#60A5FA">Memuat rekap operasional...</td></tr>';
+    const url = `${GAS_URL}?action=getRekap&pt=${encodeURIComponent(pt)}&pangkalan=${encodeURIComponent(pangkalans.join(','))}&month=${selMonth.value}&year=${tahun}`;
+    const data = await fetchJSON(url);
+    if (!data) return;
+
+    const totals = renderTable(data.rows);
+    document.getElementById('total-penerimaan').textContent = data.total_penerimaan ?? '-';
+    document.getElementById('do-owned').textContent = data.do_owned ?? '-';
+    document.getElementById('price').textContent = data.harga_tabung ? formatRupiah(data.harga_tabung) : '-';
+    document.getElementById('harga-bagi-hasil').textContent = data.harga_bagi_hasil ? formatRupiah(data.harga_bagi_hasil) : '-';
+    hitungTabungKerjasama({...data, totalBagiHasil: totals.totalBagiHasil});
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById('rekap-body');
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">Tidak ada data operasional.</td></tr>';
+      ['total-pengiriman','total-bagi-hasil','grand-total'].forEach(id => document.getElementById(id).textContent = '0');
+      return { totalPengiriman:0, totalBagiHasil:0, grandTotal:0 };
+    }
+    let grandTotal=0, totalPengiriman=0, totalBagiHasil=0;
+    tbody.innerHTML = rows.map(r => {
+      const bayar = Number(r.bayar_lewat_brimola)||0;
+      const nominal = Number(r.nominal_harus_dibayar)||0;
+      const bukti = Number(r.bukti_transfer)||0;
+      const pengiriman = Number(r.pengiriman)||0;
+      const bagi = Number(r.bagi_hasil)||0;
+      const totalTBG = bayar - nominal + bukti;
+      grandTotal += totalTBG; totalPengiriman += pengiriman; totalBagiHasil += bagi;
+      const brimolaHTML = (r.brimola_oleh||'').split(';').map(s=>s.trim()).filter(Boolean).join('<br>');
+      return `<tr>
+        <td>${r.tanggal||'-'}</td><td>${r.laporan_pengiriman||''}</td><td>${r.retur||''}</td>
+        <td>${r.dikirim||''}</td><td>${r.master_sa||''}</td>
+        <td style="text-align:right;font-weight:600">${pengiriman}</td>
+        <td style="text-align:right">${formatRupiah(nominal)}</td>
+        <td style="font-size:0.8rem">${brimolaHTML}</td>
+        <td style="text-align:right">${formatRupiah(bayar)}</td>
+        <td style="text-align:right">${formatRupiah(bukti)}</td>
+        <td style="text-align:right">${formatRupiah(bagi)}</td>
+        <td style="text-align:right;font-weight:700;color:#60A5FA">${formatRupiah(totalTBG)}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('total-pengiriman').textContent = totalPengiriman;
+    document.getElementById('total-bagi-hasil').textContent = formatRupiah(totalBagiHasil);
+    document.getElementById('grand-total').textContent = formatRupiah(grandTotal);
+    return { totalPengiriman, totalBagiHasil, grandTotal };
+  }
+
+  function hitungTabungKerjasama(data) {
+    const tK = (Number(data.total_penerimaan)||0) - (Number(data.do_owned)||0);
+    const sisa = tK * (Number(data.harga_bagi_hasil)||0) - (Number(data.totalBagiHasil)||0);
+    document.getElementById('tabung-kerjasama').textContent = tK + ' Tbg';
+    document.getElementById('sisa-bagi-hasil').textContent = formatRupiah(sisa);
+  }
+
+  async function loadLib(url) {
+    if (!document.querySelector(`script[src="${url}"]`)) {
+      return new Promise(resolve => { const s=document.createElement('script'); s.src=url; s.onload=resolve; document.body.appendChild(s); });
+    }
+  }
+
+  async function getFullCanvas() {
+    await loadLib('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+    const wrapper = document.getElementById('rekap-wrapper');
+    const inner = document.getElementById('table-scroll-container');
+    inner.style.maxHeight = 'none'; inner.style.overflow = 'visible';
+    await new Promise(r => setTimeout(r, 300));
+    const canvas = await html2canvas(wrapper, { scale:2, useCORS:true, backgroundColor:'#111827' });
+    inner.style.maxHeight = '55vh'; inner.style.overflow = 'auto';
+    return canvas;
+  }
+
+  document.getElementById('btn-export-xlsx').addEventListener('click', async () => {
+    showSpinner('Membuat Excel...');
+    if (!window.XLSX) await loadLib('https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js');
+    const wb = window.XLSX.utils.book_new();
+    const ws = window.XLSX.utils.table_to_sheet(document.getElementById('rekap-table'));
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+    window.XLSX.writeFile(wb, `Rekap_${namaPangkalan}_${bulanTahun.replace(/\s+/g,'_')}.xlsx`);
+    hideSpinner();
+  });
+
+  async function shareRekapWA() {
+    document.getElementById('share-menu').classList.remove('open');
+    if (!namaPangkalan) { showToast('Tampilkan rekap dulu.', 'warning'); return; }
+    showSpinner('Menyiapkan gambar...');
+    try {
+      const canvas = await getFullCanvas();
+      const blob = await (await fetch(canvas.toDataURL('image/png'))).blob();
+      const file = new File([blob], `Rekap_${namaPangkalan}.png`, {type:'image/png'});
+      if (navigator.canShare && navigator.canShare({files:[file]})) {
+        await navigator.share({files:[file]});
+      } else {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      }
+    } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
+    hideSpinner();
+  }
+
+  async function downloadPDF() {
+    document.getElementById('share-menu').classList.remove('open');
+    if (!namaPangkalan) { showToast('Tampilkan rekap dulu.', 'warning'); return; }
+    showSpinner('Membuat PDF...');
+    try {
+      const canvas = await getFullCanvas();
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const { jsPDF } = window.jspdf;
+      const imgW = canvas.width, imgH = canvas.height;
+      const pdfW = 842, margin = 20, cW = pdfW - margin*2;
+      const cH = imgH * cW / imgW;
+      const pdf = new jsPDF('l','pt',[pdfW, Math.max(cH+margin*2, 595)]);
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, cW, cH);
+      pdf.save(`Rekap_${namaPangkalan}_${bulanTahun.replace(/\s+/g,'_')}.pdf`);
+    } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
+    hideSpinner();
+  }
+
+  document.getElementById('btn-load').addEventListener('click', loadRekap);
+  document.getElementById('select-pt').addEventListener('change', e => loadPangkalanForPT(e.target.value));
+
+  document.getElementById('hamburger').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('show'); });
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); });
+
+  makeMonthOptions(); makeYearOptions(); loadPTs();
+  startAutoLogout(60);
+</script>
+</body>
+</html>

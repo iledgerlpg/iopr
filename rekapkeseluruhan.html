@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rekap Global — i-Operasional</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .app-layout { display: flex; min-height: 100vh; }
+  th, td { white-space: nowrap; }
+  .spinner-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .spinner-dot:nth-child(2) { animation-delay: 0.2s; }
+  .spinner-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="flex" style="align-items:center;gap:12px">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="topbar-title">💾 Rekap Global Operasional</span>
+      </div>
+      <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+    </div>
+
+    <div class="page-content">
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="card-title">Filter Periode</div>
+          <div id="loading-dots" style="display:none;gap:4px" class="flex">
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+          </div>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr auto auto;gap:12px;align-items:end">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Bulan</label>
+            <select id="selMonth" class="form-control"></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Tahun</label>
+            <select id="selYear" class="form-control"></select>
+          </div>
+          <button id="btnLoad" class="btn btn-primary" style="height:38px">Muat Rekap</button>
+          <button id="btnCSV" class="btn btn-success" style="height:38px">⬇ CSV</button>
+        </div>
+      </div>
+
+      <!-- Stats summary -->
+      <div class="stat-grid mb-4" id="summary-stats" style="display:none">
+        <div class="stat-card">
+          <div class="stat-label">Total Pangkalan</div>
+          <div class="stat-value accent" id="s-count">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Penerimaan</div>
+          <div class="stat-value accent" id="s-penerimaan">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Brimola</div>
+          <div class="stat-value success" id="s-brimola">Rp 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Luar Brimola</div>
+          <div class="stat-value" id="s-luar">Rp 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Bagi Hasil</div>
+          <div class="stat-value warning" id="s-bagi">Rp 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sisa Bagi Hasil</div>
+          <div class="stat-value danger" id="s-sisa-bagi">Rp 0</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Data Semua Pangkalan</div>
+          <span id="row-count" class="badge badge-blue">— data</span>
+        </div>
+        <div class="table-wrap" style="max-height:65vh;overflow:auto">
+          <table class="table" id="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nama Pangkalan</th>
+                <th>Nama PT</th>
+                <th style="text-align:right">Penerimaan</th>
+                <th style="text-align:right">Total Brimola</th>
+                <th style="text-align:right">Luar Brimola</th>
+                <th style="text-align:right">Bagi Hasil</th>
+                <th style="text-align:right">Sisa Refill</th>
+                <th style="text-align:right">Sisa Bagi Hasil</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">Pilih bulan &amp; tahun, lalu klik <strong>Muat Rekap</strong>.</td></tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="font-weight:700">TOTAL</td>
+                <td id="totalPenerimaan" style="text-align:right;font-weight:700">0</td>
+                <td id="totalBrimola" style="text-align:right;font-weight:700">Rp 0</td>
+                <td id="totalLuar" style="text-align:right;font-weight:700">Rp 0</td>
+                <td id="totalBagi" style="text-align:right;font-weight:700">Rp 0</td>
+                <td id="totalSisaRefill" style="text-align:right;font-weight:700">Rp 0</td>
+                <td id="totalSisaBagi" style="text-align:right;font-weight:700;color:#60A5FA">Rp 0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  if (localStorage.getItem('loggedIn') !== 'true' || !localStorage.getItem('id_spreadsheet')) window.location.href = 'login.html';
+  document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+  document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbw8bxBT3-OFMcdNYuKvb6PFyb6_P56Y9TvNVlFTIQT7_9HQYL6u515tU4zTYMgAKEUL6w/exec';
+  const money = v => { if (!v || Number(v)===0) return 'Rp 0'; return Number(v).toLocaleString('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}); };
+
+  // Month/year init
+  (function() {
+    const now = new Date();
+    const selM = document.getElementById('selMonth'), selY = document.getElementById('selYear');
+    for (let m=1; m<=12; m++) {
+      const o = new Option(m.toString().padStart(2,'0'), m);
+      if (m === now.getMonth()+1) o.selected = true;
+      selM.appendChild(o);
+    }
+    for (let y=now.getFullYear()-3; y<=now.getFullYear()+1; y++) {
+      const o = new Option(y, y);
+      if (y === now.getFullYear()) o.selected = true;
+      selY.appendChild(o);
+    }
+  })();
+
+  async function fetchRekap(month, year) {
+    const dots = document.getElementById('loading-dots');
+    const btn = document.getElementById('btnLoad');
+    dots.style.display = 'flex';
+    btn.disabled = true;
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:#60A5FA">Mengambil data pangkalan...</td></tr>';
+
+    return new Promise((resolve, reject) => {
+      const cbName = 'cbRekap' + Date.now();
+      window[cbName] = data => {
+        resolve(data && data.rows ? data.rows : []);
+        delete window[cbName]; script.remove();
+        dots.style.display = 'none';
+        btn.disabled = false;
+      };
+      const url = BACKEND_URL + `?action=getRekapSemuaPangkalan&month=${month}&year=${year}&callback=${cbName}`;
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = () => {
+        reject(new Error('Gagal load'));
+        dots.style.display = 'none'; btn.disabled = false;
+        document.getElementById('tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--danger)">Gagal mengambil data jaringan.</td></tr>';
+      };
+      document.body.appendChild(script);
+    });
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById('tbody');
+    const statsEl = document.getElementById('summary-stats');
+
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">Tidak ada data di periode ini.</td></tr>';
+      ['totalPenerimaan','totalBrimola','totalLuar','totalBagi','totalSisaRefill','totalSisaBagi'].forEach(id => document.getElementById(id).textContent = '0');
+      statsEl.style.display = 'none';
+      return;
+    }
+
+    let tP=0, tB=0, tL=0, tBagi=0, tSR=0, tSB=0;
+    tbody.innerHTML = rows.map((r, i) => {
+      const p=Number(r.penerimaan)||0, b=Number(r.total_brimola)||0, l=Number(r.total_luar_brimola)||0,
+            bh=Number(r.total_bagi_hasil)||0, sr=Number(r.sisa_refill)||0, sb=Number(r.sisa_bagi_hasil)||0;
+      tP+=p; tB+=b; tL+=l; tBagi+=bh; tSR+=sr; tSB+=sb;
+      return `<tr>
+        <td style="color:var(--text-muted)">${i+1}</td>
+        <td>${r.nama_pangkalan||'-'}</td>
+        <td>${r.nama_pt||'-'}</td>
+        <td style="text-align:right;font-weight:600">${p}</td>
+        <td style="text-align:right">${money(b)}</td>
+        <td style="text-align:right">${money(l)}</td>
+        <td style="text-align:right">${money(bh)}</td>
+        <td style="text-align:right">${money(sr)}</td>
+        <td style="text-align:right;font-weight:600;color:${sb<0?'#F87171':'#60A5FA'}">${money(sb)}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('totalPenerimaan').textContent = tP;
+    document.getElementById('totalBrimola').textContent = money(tB);
+    document.getElementById('totalLuar').textContent = money(tL);
+    document.getElementById('totalBagi').textContent = money(tBagi);
+    document.getElementById('totalSisaRefill').textContent = money(tSR);
+    document.getElementById('totalSisaBagi').textContent = money(tSB);
+    document.getElementById('row-count').textContent = rows.length + ' data';
+
+    // Summary stats
+    document.getElementById('s-count').textContent = rows.length;
+    document.getElementById('s-penerimaan').textContent = tP;
+    document.getElementById('s-brimola').textContent = money(tB);
+    document.getElementById('s-luar').textContent = money(tL);
+    document.getElementById('s-bagi').textContent = money(tBagi);
+    document.getElementById('s-sisa-bagi').textContent = money(tSB);
+    statsEl.style.display = 'grid';
+
+    window.__rekap_last = rows;
+  }
+
+  document.getElementById('btnLoad').addEventListener('click', async () => {
+    const rows = await fetchRekap(document.getElementById('selMonth').value, document.getElementById('selYear').value);
+    renderTable(rows);
+  });
+
+  document.getElementById('btnCSV').addEventListener('click', () => {
+    const rows = window.__rekap_last || [];
+    if (!rows.length) { showToast('Belum ada data. Klik "Muat Rekap" dulu.', 'warning'); return; }
+    const header = ['Nama Pangkalan','Nama PT','Penerimaan','Total Brimola','Luar Brimola','Total Bagi Hasil','Sisa Refill','Sisa Bagi Hasil'];
+    const csv = [header.join(','), ...rows.map(r => [
+      `"${(r.nama_pangkalan||'').replace(/"/g,'""')}"`,
+      `"${(r.nama_pt||'').replace(/"/g,'""')}"`,
+      Number(r.penerimaan)||0, Number(r.total_brimola)||0, Number(r.total_luar_brimola)||0,
+      Number(r.total_bagi_hasil)||0, Number(r.sisa_refill)||0, Number(r.sisa_bagi_hasil)||0
+    ].join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `rekap_pangkalan_${document.getElementById('selYear').value}_${document.getElementById('selMonth').value}.csv`;
+    a.click();
+  });
+
+  document.getElementById('hamburger').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('show'); });
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); });
+
+  startAutoLogout(60);
+</script>
+</body>
+</html>

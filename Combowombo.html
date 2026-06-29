@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rekap SA &amp; Jadwal — i-Operasional</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .app-layout { display: flex; min-height: 100vh; }
+
+  /* Table special styles for this complex table */
+  .combo-scroll {
+    overflow: auto;
+    max-height: 70vh;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+
+  .combo-table {
+    border-collapse: collapse;
+    min-width: 100%;
+    font-size: 12px;
+  }
+
+  .combo-table th, .combo-table td {
+    border: 1px solid rgba(99,131,199,0.15);
+    padding: 7px 9px;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  .combo-table thead tr:first-child th {
+    position: sticky; top: 0; z-index: 30;
+    background: #1A2745;
+    color: #60A5FA;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .combo-table thead tr:nth-child(2) th {
+    position: sticky; top: 33px; z-index: 29;
+    background: #1A2745;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+  }
+
+  .combo-table tbody td:first-child,
+  .combo-table thead th:first-child {
+    position: sticky; left: 0;
+    background: #0D1424;
+    z-index: 4;
+    font-weight: 500;
+    text-align: left;
+    border-right: 1px solid var(--border-glow);
+  }
+
+  .combo-table tbody td:nth-child(2),
+  .combo-table thead th:nth-child(2) {
+    position: sticky; left: 120px;
+    background: #0D1424;
+    z-index: 3;
+    border-right: 1px solid var(--border);
+  }
+
+  .combo-table tbody tr:hover td { background: rgba(37,99,235,0.08); }
+  .combo-table tbody tr:hover td:first-child,
+  .combo-table tbody tr:hover td:nth-child(2) { background: #111827; }
+
+  .row-total { background: rgba(37,99,235,0.15) !important; font-weight: 700; }
+  .row-total td:first-child, .row-total td:nth-child(2) { background: #111827 !important; color: #60A5FA !important; }
+
+  .row-spbe { background: rgba(245,158,11,0.08) !important; }
+  .row-spbe td:first-child, .row-spbe td:nth-child(2) { background: #111827 !important; color: var(--warning) !important; }
+
+  .row-total-spbe { background: rgba(245,158,11,0.15) !important; font-weight: 700; }
+  .row-total-spbe td { color: var(--warning) !important; }
+  .row-total-spbe td:first-child, .row-total-spbe td:nth-child(2) { background: #111827 !important; }
+
+  .row-sisa { background: rgba(16,185,129,0.08) !important; font-weight: 700; }
+  .row-sisa td { color: var(--success) !important; }
+  .row-sisa td:first-child, .row-sisa td:nth-child(2) { background: #111827 !important; }
+
+  .filter-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(37,99,235,0.25);
+    border-radius: 99px;
+    font-size: 0.75rem;
+    color: #60A5FA;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .filter-tag.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .multi-select-wrap {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="flex" style="align-items:center;gap:12px">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="topbar-title">💻 Rekap SA Sim3lon &amp; Jadwal Harian</span>
+      </div>
+      <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+    </div>
+
+    <div class="page-content">
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="card-title">Filter Rekap</div>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-bottom:16px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Bulan</label>
+            <select id="month" class="form-control">
+              <option value="1">Januari</option><option value="2">Februari</option>
+              <option value="3">Maret</option><option value="4">April</option>
+              <option value="5">Mei</option><option value="6">Juni</option>
+              <option value="7">Juli</option><option value="8">Agustus</option>
+              <option value="9">September</option><option value="10">Oktober</option>
+              <option value="11">November</option><option value="12">Desember</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Tahun</label>
+            <select id="year" class="form-control"></select>
+          </div>
+          <button onclick="loadRekap()" class="btn btn-primary" style="height:38px">🔍 Tampilkan</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="form-label" style="margin-bottom:6px">Filter Pangkalan</label>
+            <div class="multi-select-wrap" id="filterPangkalanWrap">
+              <span style="color:var(--text-muted);font-size:0.8rem">Muat rekap dulu...</span>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" style="margin-bottom:6px">Filter PT</label>
+            <div class="multi-select-wrap" id="filterPTWrap">
+              <span style="color:var(--text-muted);font-size:0.8rem">Muat rekap dulu...</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn btn-secondary btn-sm" onclick="applyFilter()">Terapkan Filter</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Data SA, Jadwal &amp; Pengiriman</div>
+          <span class="badge badge-blue" id="legend-badge">SA 📅 · JH 📃 · P 🚚</span>
+        </div>
+        <div class="combo-scroll" id="tabel-container">
+          <div style="text-align:center;padding:48px;color:var(--text-muted)">Pilih bulan &amp; tahun lalu klik Tampilkan.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  if (localStorage.getItem('loggedIn') !== 'true' || !localStorage.getItem('id_spreadsheet')) window.location.href = 'login.html';
+  document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+  document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+  const endpoint = 'https://script.google.com/macros/s/AKfycbzZRnFI4CEjuie8_32Zusj2H8QbsVKROTrB1dIaZ_kuy1KxWGXZxZFHUHwMKjPfGPThWw/exec';
+
+  // Year options
+  const yearSel = document.getElementById('year');
+  const now = new Date();
+  for (let y = now.getFullYear()-2; y <= now.getFullYear()+1; y++) {
+    const o = new Option(y, y);
+    if (y === now.getFullYear()) o.selected = true;
+    yearSel.appendChild(o);
+  }
+  document.getElementById('month').value = now.getMonth() + 1;
+
+  let lastInfo = null;
+  let selectedPangkalan = new Set(['ALL']);
+  let selectedPT = new Set(['ALL']);
+
+  function buildTagsForWrap(wrapId, items, selectedSet, key) {
+    const wrap = document.getElementById(wrapId);
+    wrap.innerHTML = '';
+    // ALL tag
+    const allTag = document.createElement('span');
+    allTag.className = 'filter-tag' + (selectedSet.has('ALL') ? ' selected' : '');
+    allTag.textContent = '— Semua —';
+    allTag.onclick = () => {
+      selectedSet.clear(); selectedSet.add('ALL');
+      buildTagsForWrap(wrapId, items, selectedSet, key);
+    };
+    wrap.appendChild(allTag);
+
+    items.forEach(item => {
+      const tag = document.createElement('span');
+      tag.className = 'filter-tag' + (selectedSet.has(item) ? ' selected' : '');
+      tag.textContent = item;
+      tag.onclick = () => {
+        selectedSet.delete('ALL');
+        if (selectedSet.has(item)) selectedSet.delete(item);
+        else selectedSet.add(item);
+        if (selectedSet.size === 0) selectedSet.add('ALL');
+        buildTagsForWrap(wrapId, items, selectedSet, key);
+      };
+      wrap.appendChild(tag);
+    });
+  }
+
+  function applyFilter() {
+    if (!lastInfo) { showToast('Muat rekap dulu.', 'warning'); return; }
+    renderTable(lastInfo);
+  }
+
+  function loadRekap() {
+    const month = document.getElementById('month').value;
+    const year = document.getElementById('year').value;
+    showSpinner('Memuat data rekap...');
+    document.getElementById('tabel-container').innerHTML = '<div style="text-align:center;padding:32px;color:#60A5FA">Mengambil data...</div>';
+
+    const cbName = 'renderTableJSONP_' + Date.now();
+    window[cbName] = json => {
+      hideSpinner();
+      if (json.status !== 'ok') {
+        showToast(json.message || 'Gagal mengambil data.', 'error');
+        document.getElementById('tabel-container').innerHTML = '<div style="text-align:center;padding:32px;color:var(--danger)">Gagal mengambil data.</div>';
+        return;
+      }
+      lastInfo = json.info;
+      // Populate filters
+      const data = json.info.result || [];
+      const pangSet = new Set(), ptSet = new Set();
+      data.forEach(r => { pangSet.add(r.namaPangkalan); ptSet.add(r.namaPT); });
+      selectedPangkalan = new Set(['ALL']);
+      selectedPT = new Set(['ALL']);
+      buildTagsForWrap('filterPangkalanWrap', [...pangSet], selectedPangkalan, 'pangkalan');
+      buildTagsForWrap('filterPTWrap', [...ptSet], selectedPT, 'pt');
+      renderTable(json.info);
+      delete window[cbName]; script.remove();
+    };
+
+    const script = document.createElement('script');
+    script.src = `${endpoint}?action=getRekapGabungan&month=${month}&year=${year}&callback=${cbName}`;
+    script.onerror = () => { hideSpinner(); showToast('Gagal koneksi.', 'error'); script.remove(); };
+    document.body.appendChild(script);
+  }
+
+  function renderTable(info) {
+    const container = document.getElementById('tabel-container');
+    const tanggalSet = info.tanggalSet || [];
+    let data = (info.result || []).filter(r => selectedPangkalan.has('ALL') || selectedPangkalan.has(r.namaPangkalan));
+    data = data.filter(r => selectedPT.has('ALL') || selectedPT.has(r.namaPT));
+    let spbeData = (info.spbe || []).filter(sp => selectedPT.has('ALL') || selectedPT.has(sp.namaPT));
+    spbeData = spbeData.filter(sp => tanggalSet.some(tgl => Number(sp.data[tgl]||0) > 0));
+
+    if (!tanggalSet.length || (!data.length && !spbeData.length)) {
+      container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted)">Tidak ada data untuk filter ini.</div>';
+      return;
+    }
+
+    let html = `<table class="combo-table"><thead>
+      <tr>
+        <th rowspan="2">Nama Pangkalan</th>
+        <th rowspan="2">Nama PT</th>
+        ${tanggalSet.map(tgl => `<th colspan="3">${tgl}</th>`).join('')}
+      </tr>
+      <tr>
+        ${tanggalSet.map(() => `<th>SA 📅</th><th>JH 📃</th><th>P 🚚</th>`).join('')}
+      </tr>
+    </thead><tbody>`;
+
+    const totalPerTgl = {};
+    tanggalSet.forEach(tgl => totalPerTgl[tgl] = {SA:0,JH:0,IS:0});
+
+    data.forEach(row => {
+      html += `<tr><td>${row.namaPangkalan}</td><td>${row.namaPT}</td>`;
+      tanggalSet.forEach(tgl => {
+        const isi = row.data[tgl] || {};
+        const sa=isi.SA||0, jh=isi.JH||0, is=isi.IS||0;
+        html += `<td>${sa||'-'}</td><td>${jh||'-'}</td><td>${is?`<strong>${is}</strong> 🚚`:'-'}</td>`;
+        totalPerTgl[tgl].SA += Number(sa); totalPerTgl[tgl].JH += Number(jh); totalPerTgl[tgl].IS += Number(is);
+      });
+      html += `</tr>`;
+    });
+
+    // Total row
+    html += `<tr class="row-total"><td colspan="2">TOTAL</td>`;
+    tanggalSet.forEach(tgl => {
+      const t = totalPerTgl[tgl];
+      html += `<td>${t.SA}</td><td>${t.JH}</td><td>${t.IS||'-'}</td>`;
+    });
+    html += `</tr>`;
+
+    if (spbeData.length) {
+      const totalSPBE = {};
+      tanggalSet.forEach(tgl => totalSPBE[tgl] = 0);
+
+      spbeData.forEach(sp => {
+        html += `<tr class="row-spbe"><td>${sp.namaSPBE}</td><td>${sp.namaPT||'-'}</td>`;
+        tanggalSet.forEach(tgl => {
+          const v = Number(sp.data[tgl]||0);
+          totalSPBE[tgl] += v;
+          html += `<td colspan="3">${v||'-'}</td>`;
+        });
+        html += `</tr>`;
+      });
+
+      html += `<tr class="row-total-spbe"><td colspan="2">TOTAL SPBE</td>`;
+      tanggalSet.forEach(tgl => html += `<td colspan="3">${totalSPBE[tgl]||'-'}</td>`);
+      html += `</tr>`;
+
+      let sisaPrev = 0;
+      html += `<tr class="row-sisa"><td colspan="2">SISA / STOK GUDANG</td>`;
+      tanggalSet.forEach((tgl, i) => {
+        const totalP = totalPerTgl[tgl].IS || 0;
+        const masuk = totalSPBE[tgl] || 0;
+        const sisa = i === 0 ? masuk - totalP : (sisaPrev + masuk) - totalP;
+        sisaPrev = sisa;
+        html += `<td colspan="3"><strong>${sisa}</strong></td>`;
+      });
+      html += `</tr>`;
+    }
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+  }
+
+  document.getElementById('hamburger').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('show'); });
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); });
+
+  startAutoLogout(60);
+</script>
+</body>
+</html>

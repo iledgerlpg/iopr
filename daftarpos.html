@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Pangkalan — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .app-layout { display: flex; min-height: 100vh; }
+    .input-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+    @media(max-width:640px){ .input-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div id="sidebar-placeholder"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="flex" style="align-items:center;gap:12px">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="topbar-title">Data Pangkalan (POS)</span>
+        </div>
+        <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+      </div>
+
+      <div class="page-content">
+        <div class="card mb-4">
+          <div class="card-header">
+            <div class="card-title">Tambah Pangkalan</div>
+          </div>
+          <div class="input-row">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Nama Pangkalan</label>
+              <input type="text" id="uraianInput" class="form-control" placeholder="PANGKALAN ABC">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Nama PT</label>
+              <input type="text" id="posInput" class="form-control" placeholder="PT XYZ">
+            </div>
+            <button class="btn btn-primary" onclick="tambahPos()" style="height:38px;align-self:end">+ Tambah</button>
+          </div>
+
+          <hr class="divider">
+
+          <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <label class="form-label">Upload via Excel</label>
+              <input type="file" accept=".xlsx,.xls" id="fileUpload">
+              <label for="fileUpload" class="file-input-label">📂 Pilih file Excel (.xlsx)</label>
+            </div>
+            <button class="btn btn-secondary" onclick="uploadExcel()">Upload</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Daftar Pangkalan</div>
+            <span id="total-badge" class="badge badge-blue">0 data</span>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="posTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nama Pangkalan</th>
+                  <th>Nama PT</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    if (!localStorage.getItem('id_spreadsheet') || localStorage.getItem('loggedIn') !== 'true') window.location.href = 'login.html';
+    document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+    document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+    let dataPOS = [];
+
+    function loadPOS() {
+      fetch(getAPIUrl('get') + '&sheet=POS')
+        .then(r => r.json())
+        .then(data => {
+          dataPOS = data;
+          document.getElementById('total-badge').textContent = data.length + ' data';
+          const tbody = document.getElementById('tableBody');
+          if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">Belum ada data.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.map((item, i) => `
+            <tr>
+              <td style="color:var(--text-muted)">${i+1}</td>
+              <td>${item.uraian}</td>
+              <td>${item.pos}</td>
+              <td>
+                <div class="flex gap-2">
+                  <button class="btn btn-warning btn-sm" onclick="editPos(${i})">✏️ Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="hapusPos(${i+2})">🗑️</button>
+                </div>
+              </td>
+            </tr>`).join('');
+        })
+        .catch(err => showToast('Gagal load: ' + err.message, 'error'));
+    }
+
+    function tambahPos() {
+      const uraian = document.getElementById('uraianInput').value.trim().toUpperCase();
+      const pos = document.getElementById('posInput').value.trim().toUpperCase();
+      if (!uraian || !pos) { showToast('Kedua field harus diisi.', 'warning'); return; }
+
+      showSpinner('Menyimpan...');
+      fetch(getAPIUrl('add'), {
+        method: 'POST',
+        body: JSON.stringify({ sheet: 'POS', action: 'add', payload: { values: [uraian, pos] } })
+      })
+      .then(r => r.json())
+      .then(() => {
+        hideSpinner();
+        document.getElementById('uraianInput').value = '';
+        document.getElementById('posInput').value = '';
+        showToast('Data berhasil ditambahkan!', 'success');
+        loadPOS();
+      })
+      .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function editPos(index) {
+      const c = dataPOS[index];
+      const newUraian = prompt('Edit Nama Pangkalan:', c.uraian);
+      if (newUraian === null) return;
+      const newPos = prompt('Edit Nama PT:', c.pos);
+      if (newPos === null) return;
+
+      showSpinner('Menyimpan perubahan...');
+      fetch(getAPIUrl('edit'), {
+        method: 'POST',
+        body: JSON.stringify({ sheet: 'POS', action: 'edit', payload: { row: index+2, values: [newUraian.trim().toUpperCase(), newPos.trim().toUpperCase()] } })
+      })
+      .then(r => r.json())
+      .then(() => { hideSpinner(); showToast('Data diperbarui.', 'success'); loadPOS(); })
+      .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function hapusPos(row) {
+      if (!confirm('Hapus baris ini?')) return;
+      showSpinner('Menghapus...');
+      fetch(getAPIUrl('delete'), {
+        method: 'POST',
+        body: JSON.stringify({ sheet: 'POS', action: 'delete', payload: { row } })
+      })
+      .then(r => r.json())
+      .then(() => { hideSpinner(); showToast('Data dihapus.', 'success'); loadPOS(); })
+      .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function uploadExcel() {
+      const file = document.getElementById('fileUpload').files[0];
+      if (!file) { showToast('Pilih file Excel dulu.', 'warning'); return; }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+        showSpinner('Upload ' + rows.length + ' baris...');
+        Promise.all(rows.filter(r => r[0] && r[1]).map(row =>
+          fetch(getAPIUrl('add'), { method: 'POST', body: JSON.stringify({ sheet: 'POS', action: 'add', payload: { values: [row[0], row[1]] } }) }).then(r => r.json())
+        )).then(() => { hideSpinner(); showToast('Upload selesai!', 'success'); loadPOS(); })
+        .catch(err => { hideSpinner(); showToast('Gagal upload: ' + err.message, 'error'); });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Sidebar mobile
+    document.getElementById('hamburger').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-backdrop').classList.toggle('show');
+    });
+    document.getElementById('sidebar-backdrop').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-backdrop').classList.remove('show');
+    });
+
+    loadPOS();
+    startAutoLogout(60);
+  </script>
+</body>
+</html>

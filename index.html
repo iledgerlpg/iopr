@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Bukti TF — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .form-page { max-width: 560px; margin: 0 auto; }
+
+    .form-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .file-area {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      background: var(--bg-elevated);
+      margin-top: 6px;
+    }
+
+    .file-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .preview-img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-top: 10px;
+      display: none;
+    }
+
+    .payment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      transition: var(--transition);
+    }
+
+    .payment-badge.selected {
+      background: var(--accent-soft);
+      border-color: rgba(37,99,235,0.4);
+      color: #60A5FA;
+    }
+
+    .modal-success {
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .app-layout { display: flex; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div id="sidebar-placeholder"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="flex" style="align-items:center;gap:12px">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="topbar-title">Form Bukti TF Pangkalan</span>
+        </div>
+        <div class="flex" style="gap:8px;align-items:center">
+          <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="form-page">
+          <div class="form-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Form Transaksi</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px" id="pt-name-form">—</div>
+              </div>
+              <span class="badge badge-blue">Baru</span>
+            </div>
+
+            <!-- Keterangan Pembayaran -->
+            <div class="form-group">
+              <label class="form-label">Keterangan Pembayaran</label>
+              <select id="nama" class="form-control">
+                <option value="">Memuat...</option>
+              </select>
+            </div>
+
+            <!-- Nama Pangkalan -->
+            <div class="form-group">
+              <label class="form-label">Nama Pangkalan</label>
+              <input list="uraianList" id="uraian" class="form-control" placeholder="Ketik nama pangkalan..." required>
+              <datalist id="uraianList"></datalist>
+            </div>
+
+            <!-- Nama PT (auto) -->
+            <div class="form-group">
+              <label class="form-label">Nama PT</label>
+              <input type="text" id="pos" readonly class="form-control" placeholder="Otomatis terisi...">
+            </div>
+
+            <!-- Nominal -->
+            <div class="form-group">
+              <label class="form-label">Nominal Pembayaran (Rp)</label>
+              <input type="text" id="nominal" class="form-control" placeholder="0" required>
+            </div>
+
+            <!-- Foto Nota -->
+            <div class="form-group">
+              <label class="form-label">Foto Nota</label>
+              <div class="file-area">
+                <div class="file-btns">
+                  <label for="fotoUpload" class="btn btn-secondary btn-sm" style="cursor:pointer">📁 Galeri</label>
+                  <label for="fotoCamera" class="btn btn-secondary btn-sm" style="cursor:pointer">📷 Kamera</label>
+                </div>
+                <input type="file" accept="image/*" id="fotoUpload">
+                <input type="file" accept="image/*" capture="environment" id="fotoCamera">
+                <img id="previewNota" class="preview-img">
+              </div>
+            </div>
+
+            <!-- Metode Pembayaran -->
+            <div class="form-group">
+              <label class="form-label">Metode Pembayaran</label>
+              <div class="flex gap-2" style="flex-wrap:wrap;margin-top:6px">
+                <label class="payment-badge selected" id="badge-transfer">
+                  <input type="radio" name="pembayaran" value="Transfer" checked style="display:none">
+                  💳 Transfer
+                </label>
+                <label class="payment-badge" id="badge-cash">
+                  <input type="radio" name="pembayaran" value="Cash" style="display:none">
+                  💵 Cash
+                </label>
+              </div>
+            </div>
+
+            <!-- Bukti Cash (conditional) -->
+            <div id="buktiCashContainer" style="display:none" class="form-group">
+              <label class="form-label">Bukti Serah Terima Cash</label>
+              <div class="file-area">
+                <label for="buktiCash" class="btn btn-secondary btn-sm" style="cursor:pointer">📎 Upload Bukti</label>
+                <input type="file" accept="image/*" id="buktiCash">
+                <img id="previewBukti" class="preview-img">
+              </div>
+            </div>
+
+            <button id="submitBtn" class="btn btn-primary w-full btn-lg" style="margin-top:8px" onclick="submitForm()">
+              Kirim Transaksi
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Sukses -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal modal-success">
+      <div class="success-icon">✅</div>
+      <div style="font-size:1.2rem;font-weight:700;color:var(--text-primary);margin-bottom:8px">Transaksi Berhasil!</div>
+      <div style="font-size:0.875rem;color:var(--text-muted);margin-bottom:20px">Data telah disimpan ke sistem.</div>
+      <button class="btn btn-primary w-full" onclick="closeModal()">Tutup</button>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    if (localStorage.getItem('loggedIn') !== 'true') window.location.href = 'login.html';
+
+    document.getElementById('pt-name-form').textContent = localStorage.getItem('nama_pt') || '';
+    document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+    document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+    const id_spreadsheet = localStorage.getItem('id_spreadsheet');
+    const SUBMIT_URL = API_ENDPOINT + '?id_spreadsheet=' + id_spreadsheet;
+
+    // Load dropdown nama
+    fetch(getAPIUrl('nama')).then(r => r.json()).then(data => {
+      const sel = document.getElementById('nama');
+      sel.innerHTML = '';
+      data.forEach(n => {
+        const o = document.createElement('option');
+        o.value = o.textContent = n;
+        sel.appendChild(o);
+      });
+    });
+
+    // Load pangkalan
+    let uraianMap = {};
+    fetch(getAPIUrl('pos')).then(r => r.json()).then(data => {
+      data.forEach(row => {
+        uraianMap[row.uraian] = row.pos;
+        const o = document.createElement('option');
+        o.value = row.uraian;
+        document.getElementById('uraianList').appendChild(o);
+      });
+    });
+
+    document.getElementById('uraian').addEventListener('input', () => {
+      document.getElementById('pos').value = uraianMap[document.getElementById('uraian').value] || '';
+    });
+
+    // Payment method toggle
+    document.querySelectorAll('input[name="pembayaran"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('.payment-badge').forEach(b => b.classList.remove('selected'));
+        radio.parentElement.classList.add('selected');
+        document.getElementById('buktiCashContainer').style.display = radio.value === 'Cash' ? 'block' : 'none';
+      });
+    });
+
+    // Image preview
+    ['fotoUpload','fotoCamera'].forEach(id => {
+      document.getElementById(id).addEventListener('change', function() {
+        if (this.files[0]) {
+          document.getElementById('previewNota').src = URL.createObjectURL(this.files[0]);
+          document.getElementById('previewNota').style.display = 'block';
+        }
+      });
+    });
+
+    document.getElementById('buktiCash').addEventListener('change', function() {
+      if (this.files[0]) {
+        document.getElementById('previewBukti').src = URL.createObjectURL(this.files[0]);
+        document.getElementById('previewBukti').style.display = 'block';
+      }
+    });
+
+    initNominalInput('nominal');
+
+    async function submitForm() {
+      const nama = document.getElementById('nama').value;
+      const uraian = document.getElementById('uraian').value;
+      const pos = document.getElementById('pos').value;
+      const nominal = document.getElementById('nominal').value.replace(/\D/g,'');
+      const pembayaranEl = document.querySelector('input[name="pembayaran"]:checked');
+      const pembayaranVal = pembayaranEl ? pembayaranEl.value : 'Transfer';
+
+      const fotoFile = document.getElementById('fotoUpload').files[0] || document.getElementById('fotoCamera').files[0];
+      if (!fotoFile) { showToast('Foto nota wajib diunggah.', 'error'); return; }
+
+      const buktiFile = pembayaranVal === 'Cash' ? document.getElementById('buktiCash').files[0] : null;
+      if (pembayaranVal === 'Cash' && !buktiFile) { showToast('Bukti cash wajib diunggah.', 'error'); return; }
+
+      const toBase64 = file => new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Mengirim...';
+      showSpinner('Mengirim transaksi...');
+
+      try {
+        const fotoNotaBase64 = await toBase64(fotoFile);
+        const fotoBuktiBase64 = buktiFile ? await toBase64(buktiFile) : '';
+
+        const payload = {
+          action: 'addTransaksi', sheet: 'Transaksi',
+          payload: { nama, uraian, pos, nominal, pembayaran: pembayaranVal, fotoNota: fotoNotaBase64, fotoBukti: fotoBuktiBase64 }
+        };
+
+        const res = await fetch(SUBMIT_URL + '&action=addTransaksi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        hideSpinner();
+
+        if (result.status === 'success') {
+          document.getElementById('uraian').value = '';
+          document.getElementById('pos').value = '';
+          document.getElementById('nominal').value = '';
+          document.getElementById('previewNota').style.display = 'none';
+          document.getElementById('previewBukti').style.display = 'none';
+          document.getElementById('modalOverlay').classList.add('show');
+        } else {
+          showToast('Gagal: ' + result.message, 'error');
+        }
+      } catch (err) {
+        hideSpinner();
+        showToast('Error koneksi: ' + err.message, 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Kirim Transaksi';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('show');
+    }
+
+    // Sidebar mobile
+    document.getElementById('hamburger').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-backdrop').classList.toggle('show');
+    });
+    document.getElementById('sidebar-backdrop').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-backdrop').classList.remove('show');
+    });
+
+    startAutoLogout(60);
+  </script>
+</body>
+</html>

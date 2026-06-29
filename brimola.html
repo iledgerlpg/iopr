@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brimola — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .app-layout { display: flex; min-height: 100vh; }
+    .info-box {
+      background: var(--accent-soft);
+      border: 1px solid rgba(37,99,235,0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: #60A5FA;
+      margin-top: 8px;
+      display: none;
+    }
+    .info-box.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div id="sidebar-placeholder"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="flex" style="align-items:center;gap:12px">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="topbar-title">Brimola Agen &amp; Pangkalan</span>
+        </div>
+        <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+      </div>
+
+      <div class="page-content">
+        <!-- Input Form -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <div class="card-title">Tambah Data Brimola</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Nama Pangkalan</label>
+              <input list="uraianList" id="uraianInput" class="form-control" placeholder="Ketik pangkalan...">
+              <datalist id="uraianList"></datalist>
+              <div class="info-box" id="infoBrimola"></div>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Nama PT</label>
+              <input type="text" id="posInput" readonly class="form-control" placeholder="Otomatis...">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Kode Briva</label>
+              <input id="kodeBrivaInput" class="form-control" placeholder="Nomor Briva...">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Tanggal (kosong = Pangkalan)</label>
+              <input type="date" id="tanggalInput" class="form-control">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Brimola Oleh</label>
+              <input id="brimolaOlehInput" readonly class="form-control" value="PANGKALAN">
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <button class="btn btn-primary" onclick="tambahBrimola()">+ Tambah</button>
+          </div>
+        </div>
+
+        <!-- Filter + Table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Data Brimola</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="filterPangkalan" class="form-control" placeholder="🔍 Filter pangkalan..." style="width:200px">
+              <span id="count-badge" class="badge badge-blue">0 data</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nama Pangkalan</th>
+                  <th>Nama PT</th>
+                  <th>Kode Briva</th>
+                  <th>Tanggal</th>
+                  <th>Brimola Oleh</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    if (!localStorage.getItem('id_spreadsheet') || localStorage.getItem('loggedIn') !== 'true') window.location.href = 'login.html';
+    document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+    document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+    let dataPOS = [], uraianMap = {}, dbPangkalan = {};
+
+    // Load pos mapping
+    fetch(getAPIUrl('pos')).then(r => r.json()).then(data => {
+      data.forEach(row => {
+        uraianMap[row.uraian] = row.pos;
+        document.getElementById('uraianList').appendChild(new Option(row.uraian, row.uraian));
+      });
+    });
+
+    // Load db_pangkalan for Brimola info
+    fetch(getAPIUrl('db_pangkalan')).then(r => r.json()).then(data => {
+      data.forEach(row => { dbPangkalan[row.uraian] = { id: row.id_brimola, password: row.password }; });
+    });
+
+    document.getElementById('uraianInput').addEventListener('input', () => {
+      const nama = document.getElementById('uraianInput').value;
+      document.getElementById('posInput').value = uraianMap[nama] || '';
+      const info = document.getElementById('infoBrimola');
+      if (dbPangkalan[nama]) {
+        info.innerHTML = `🔑 ID Brimola: <strong>${dbPangkalan[nama].id}</strong> &nbsp;|&nbsp; Password: <strong>${dbPangkalan[nama].password}</strong>`;
+        info.classList.add('show');
+      } else {
+        info.classList.remove('show');
+      }
+    });
+
+    document.getElementById('tanggalInput').addEventListener('change', () => {
+      const val = document.getElementById('tanggalInput').value;
+      document.getElementById('brimolaOlehInput').value = val ? 'AGEN' : 'PANGKALAN';
+    });
+
+    function loadPOS(filter = '') {
+      showSpinner('Memuat data...');
+      fetch(getAPIUrl('Brimola_Agen')).then(r => r.json()).then(data => {
+        dataPOS = data;
+        const filtered = filter ? data.filter(d => d.uraian.toLowerCase().includes(filter.toLowerCase())) : data;
+        document.getElementById('count-badge').textContent = filtered.length + ' data';
+        const tbody = document.getElementById('tableBody');
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">Tidak ada data.</td></tr>';
+        } else {
+          tbody.innerHTML = filtered.map((item, i) => `
+            <tr>
+              <td style="color:var(--text-muted)">${i+1}</td>
+              <td>${item.uraian}</td>
+              <td>${item.pos}</td>
+              <td><span class="badge badge-blue">${item.doyangdimiliki||'-'}</span></td>
+              <td>${formatTanggal(item.hargarefill)}</td>
+              <td><span class="badge ${item.hargabagihasil==='AGEN' ? 'badge-green' : 'badge-yellow'}">${item.hargabagihasil||'-'}</span></td>
+              <td>
+                <div class="flex gap-2">
+                  <button class="btn btn-warning btn-sm" onclick="editPos(${data.indexOf(item)})">✏️</button>
+                  <button class="btn btn-danger btn-sm" onclick="hapusPos(${data.indexOf(item)+2})">🗑️</button>
+                </div>
+              </td>
+            </tr>`).join('');
+        }
+        hideSpinner();
+      }).catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    document.getElementById('filterPangkalan').addEventListener('input', e => loadPOS(e.target.value));
+
+    function tambahBrimola() {
+      const pos = document.getElementById('posInput').value.trim().toUpperCase();
+      const uraian = document.getElementById('uraianInput').value.trim().toUpperCase();
+      const kode = document.getElementById('kodeBrivaInput').value.trim();
+      const tgl = document.getElementById('tanggalInput').value;
+      const brimolaOleh = tgl ? 'AGEN' : 'PANGKALAN';
+      let tanggal = '-';
+      if (tgl) {
+        const d = new Date(tgl);
+        tanggal = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      }
+
+      if (!uraian || !pos) { showToast('Nama Pangkalan dan PT wajib diisi.', 'warning'); return; }
+
+      showSpinner('Menyimpan...');
+      fetch(getAPIUrl('add'), {
+        method: 'POST',
+        body: JSON.stringify({ sheet: 'Brimola_Agen', action: 'add', payload: { values: [pos, uraian, kode, tanggal, brimolaOleh] } })
+      }).then(r => r.json()).then(() => {
+        hideSpinner();
+        ['uraianInput','posInput','kodeBrivaInput','tanggalInput'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('brimolaOlehInput').value = 'PANGKALAN';
+        document.getElementById('infoBrimola').classList.remove('show');
+        showToast('Berhasil ditambah!', 'success');
+        loadPOS(document.getElementById('filterPangkalan').value);
+      }).catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function editPos(index) {
+      const c = dataPOS[index];
+      const nU = prompt('Edit Nama Pangkalan:', c.uraian); if (nU === null) return;
+      const nP = prompt('Edit Nama PT:', c.pos); if (nP === null) return;
+      const nK = prompt('Edit Kode Briva:', c.doyangdimiliki); if (nK === null) return;
+      const nT = prompt('Edit Tanggal (dd/mm/yyyy atau \'-\'):', c.hargarefill); if (nT === null) return;
+      const nB = nT !== '-' ? 'AGEN' : 'PANGKALAN';
+
+      showSpinner('Menyimpan...');
+      fetch(getAPIUrl('edit'), {
+        method: 'POST',
+        body: JSON.stringify({ sheet: 'Brimola_Agen', action: 'edit', payload: { row: index+2, values: [nP.trim().toUpperCase(), nU.trim().toUpperCase(), nK, nT, nB] } })
+      }).then(r => r.json()).then(() => { hideSpinner(); showToast('Diperbarui!', 'success'); loadPOS(document.getElementById('filterPangkalan').value); })
+      .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function hapusPos(row) {
+      if (!confirm('Hapus baris ini?')) return;
+      showSpinner('Menghapus...');
+      fetch(getAPIUrl('delete'), { method: 'POST', body: JSON.stringify({ sheet: 'Brimola_Agen', action: 'delete', payload: { row } }) })
+        .then(r => r.json()).then(() => { hideSpinner(); showToast('Dihapus!', 'success'); loadPOS(document.getElementById('filterPangkalan').value); })
+        .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    document.getElementById('hamburger').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('show'); });
+    document.getElementById('sidebar-backdrop').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); });
+
+    loadPOS(); startAutoLogout(60);
+  </script>
+</body>
+</html>

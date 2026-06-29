@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pos Pembayaran — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>.app-layout{display:flex;min-height:100vh}</style>
+</head>
+<body>
+  <div class="app-layout">
+    <div id="sidebar-placeholder"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="main-content">
+      <div class="topbar">
+        <div class="flex" style="align-items:center;gap:12px">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="topbar-title">Pos Pembayaran Pangkalan</span>
+        </div>
+        <span style="font-size:0.8rem;color:var(--text-muted)" id="pt-name-top"></span>
+      </div>
+
+      <div class="page-content">
+        <div class="card mb-4">
+          <div class="card-header"><div class="card-title">Tambah Pos Pembayaran</div></div>
+          <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px" class="form-group" style="margin:0">
+              <label class="form-label">Nama Keterangan Pembayaran</label>
+              <input type="text" id="namaInput" class="form-control" placeholder="PEMBAYARAN PANGKALAN" oninput="this.value=this.value.toUpperCase()">
+            </div>
+            <button class="btn btn-primary" onclick="tambah()" style="height:38px">+ Tambah</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Daftar Pos Pembayaran</div>
+            <span id="count-badge" class="badge badge-blue">0 data</span>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr><th>#</th><th>Nama Pembayaran</th><th>Aksi</th></tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="3" style="text-align:center;padding:32px;color:var(--text-muted)">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    if (localStorage.getItem('loggedIn') !== 'true' || !localStorage.getItem('id_spreadsheet')) window.location.href = 'login.html';
+    document.getElementById('pt-name-top').textContent = localStorage.getItem('nama_pt') || '';
+    document.getElementById('sidebar-placeholder').outerHTML = buildSidebar();
+
+    let data = [];
+
+    function load() {
+      fetch(getAPIUrl('get') + '&sheet=namakaryawan').then(r => r.json()).then(d => {
+        data = d;
+        document.getElementById('count-badge').textContent = d.length + ' data';
+        const tbody = document.getElementById('tableBody');
+        if (!d.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:32px;color:var(--text-muted)">Belum ada data.</td></tr>'; return; }
+        tbody.innerHTML = d.map((item, i) => `
+          <tr>
+            <td style="color:var(--text-muted)">${i+1}</td>
+            <td>${item.nama || item}</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn btn-warning btn-sm" onclick="edit(${i})">✏️ Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="hapus(${i+2})">🗑️</button>
+              </div>
+            </td>
+          </tr>`).join('');
+      }).catch(err => showToast('Gagal: ' + err.message, 'error'));
+    }
+
+    function tambah() {
+      const nama = document.getElementById('namaInput').value.trim().toUpperCase();
+      if (!nama) { showToast('Nama tidak boleh kosong.', 'warning'); return; }
+      showSpinner('Menyimpan...');
+      fetch(getAPIUrl('add'), { method: 'POST', body: JSON.stringify({ sheet: 'namakaryawan', action: 'add', payload: { values: [nama] } }) })
+        .then(r => r.json()).then(() => { hideSpinner(); document.getElementById('namaInput').value = ''; showToast('Berhasil ditambah!', 'success'); load(); })
+        .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function edit(i) {
+      const c = data[i]; const n = prompt('Edit nama:', c.nama || c);
+      if (n === null) return;
+      const newName = n.trim().toUpperCase();
+      if (!newName) return;
+      showSpinner('Menyimpan...');
+      fetch(getAPIUrl('edit'), { method: 'POST', body: JSON.stringify({ sheet: 'namakaryawan', action: 'edit', payload: { row: i+2, values: [newName] } }) })
+        .then(r => r.json()).then(() => { hideSpinner(); showToast('Diperbarui!', 'success'); load(); })
+        .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    function hapus(row) {
+      if (!confirm('Hapus baris ini?')) return;
+      showSpinner('Menghapus...');
+      fetch(getAPIUrl('delete'), { method: 'POST', body: JSON.stringify({ sheet: 'namakaryawan', action: 'delete', payload: { row } }) })
+        .then(r => r.json()).then(() => { hideSpinner(); showToast('Dihapus!', 'success'); load(); })
+        .catch(err => { hideSpinner(); showToast('Gagal: ' + err.message, 'error'); });
+    }
+
+    document.getElementById('hamburger').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('show'); });
+    document.getElementById('sidebar-backdrop').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); });
+
+    load(); startAutoLogout(60);
+  </script>
+</body>
+</html>

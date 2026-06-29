@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — i-Operasional</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-base); }
+
+    .login-bg {
+      position: fixed; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 50%, rgba(37,99,235,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 60% at 80% 20%, rgba(6,182,212,0.08) 0%, transparent 70%);
+    }
+
+    .login-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+      padding: 16px;
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 36px 32px;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .login-icon {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 24px rgba(37,99,235,0.4);
+    }
+
+    .login-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+    }
+
+    .login-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+
+    .input-wrap .form-control { padding-left: 38px; }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent), #1E40AF);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(37,99,235,0.45);
+    }
+
+    .btn-login:active { transform: translateY(0); }
+
+    .btn-login.loading::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .error-msg {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #F87171;
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius-sm);
+      display: none;
+    }
+
+    .error-msg.show { display: block; }
+
+    .register-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .register-link a { color: #60A5FA; text-decoration: none; }
+    .register-link a:hover { text-decoration: underline; }
+
+    .dots {
+      display: flex; gap: 4px; justify-content: center; margin-top: 32px;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+    }
+    .dot:nth-child(2) { background: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="login-bg"></div>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-icon">⛽</div>
+        <div class="login-title">i-Operasional</div>
+        <div class="login-subtitle">Sistem Manajemen Pangkalan LPG</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email atau ID</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="identifier" class="form-control" placeholder="Masukkan email atau ID..." required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button class="btn-login" id="loginBtn" onclick="loginPT()">
+        Masuk ke Dashboard
+      </button>
+
+      <div class="error-msg" id="msg"></div>
+
+      <div class="register-link">
+        Belum punya akun? <a href="register.html">Daftar PT baru</a>
+      </div>
+
+      <div class="dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const API = API_ENDPOINT;
+
+    // Enter key
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') loginPT();
+    });
+
+    async function loginPT() {
+      const identifier = document.getElementById('identifier').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const msg = document.getElementById('msg');
+      const btn = document.getElementById('loginBtn');
+
+      if (!identifier || !password) {
+        msg.textContent = 'Email/ID dan password wajib diisi.';
+        msg.classList.add('show');
+        return;
+      }
+
+      msg.classList.remove('show');
+      btn.textContent = 'Memproses...';
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}?action=loginPT&identifier=${encodeURIComponent(identifier)}&password=${encodeURIComponent(password)}`);
+        const data = await res.json();
+
+        if (data.status === 'success' && data.id_spreadsheet) {
+          localStorage.setItem('loggedIn', 'true');
+          localStorage.setItem('id_spreadsheet', data.id_spreadsheet);
+          localStorage.setItem('nama_pt', data.nama_pt);
+          localStorage.setItem('email', identifier);
+
+          btn.textContent = '✓ Berhasil! Mengalihkan...';
+          setTimeout(() => window.location.href = 'dashboard.html', 500);
+        } else {
+          msg.textContent = data.message || 'Login gagal. Periksa kembali kredensial Anda.';
+          msg.classList.add('show');
+          btn.textContent = 'Masuk ke Dashboard';
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        msg.textContent = 'Gagal terhubung ke server.';
+        msg.classList.add('show');
+        btn.textContent = 'Masuk ke Dashboard';
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
